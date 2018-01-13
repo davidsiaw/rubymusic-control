@@ -5,13 +5,18 @@ email = ENV["CLOUDFLARE_EMAIL"]
 ui_url = "rubymusic.shinonome.astrobunny.net"
 api_url = "rubymusic-api.shinonome.astrobunny.net"
 
-config_contents = File.read("ui/main.j")
+if ENV["CLOUDFLARE_EMAIL"]
 
-File.write("ui/main.j", config_contents.gsub("http://192.168.1.15:5000", api_url))
+    config_contents = File.read("ui/main.j")
 
-`cd ui && bundle exec chino build`
+    File.write("ui/main.j", config_contents.gsub("http://192.168.1.15:5000", api_url))
 
-File.write("ui/main.j", config_contents)
+    `cd ui && bundle exec chino build`
+    `cp ui/favicon.ico ui/build/`
+
+    File.write("ui/main.j", config_contents)
+
+end
 
 cdn = make_cdn_from_dir(
     domain: ui_url, 
