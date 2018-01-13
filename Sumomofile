@@ -1,0 +1,49 @@
+certificate = ENV["SHINONOME_API_CERT"]
+key = ENV["CLOUDFLARE_KEY"]
+email = ENV["CLOUDFLARE_EMAIL"]
+
+ui_url = "rubymusic.shinonome.astrobunny.net"
+api_url = "rubymusic-api.shinonome.astrobunny.net"
+
+config_contents = File.read("ui/main.j")
+
+File.write("ui/main.j", config_contents.gsub("http://192.168.1.15:5000", api_url))
+
+`cd ui && bundle exec chino build`
+
+File.write("ui/main.j", config_contents)
+
+cdn = make_cdn_from_dir(
+    domain: ui_url, 
+    dns: cloudflare_dns(key: key, email: email), 
+    dir: "ui/build", 
+    low_ttl: ["*.sj"])
+
+api = make_api api_url,
+    name: "RubyMusicControlAPI",
+    cert: certificate,
+    dns: cloudflare_dns(key: key, email: email),
+    with_statements: [
+        {
+            "Effect" => "Allow",
+            "Action" => ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
+            "Resource" => "arn:aws:s3:::rubymusic-repository/*"
+        }
+    ] do
+
+    GET "/page/:pageid", :pageid, <<-SCRIPT
+        respond_with ({message: pageid, params: params});
+    SCRIPT
+
+    GET "/best_girl", <<-SCRIPT
+        respond_with ({best_girl_is: "Ruby"});
+    SCRIPT
+
+    GET "/*", <<-SCRIPT
+        respond_with ({message: "Hello!"});
+    SCRIPT
+
+end
+
+output "DistroHost", ui_url
+output "APIURL", api

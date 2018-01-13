@@ -1,0 +1,1 @@
+ kichi in shinonome_api run bundle exec sumomo create rubymusic-control-api
