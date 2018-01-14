@@ -1,7 +1,7 @@
-name "YourApplicationName"
+name "Ruby Music Control"
 version "0.0.1"
-author "YourName"
-author_email "your_name@example.com"
-company_name "YourCompany"
-identifier "com.yourcompany.app"
+author "astrobunny"
+author_email "@"
+company_name "BunnyBusiness"
+identifier "net.astrobunny.rubymusic"
 created_at DateTime.new(2017,4,23)

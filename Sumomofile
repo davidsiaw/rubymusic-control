@@ -45,7 +45,7 @@ api = make_api api_url,
     SCRIPT
 
     GET "/*", <<-SCRIPT
-        respond_with ({message: "Hello!"});
+        respond_with ({error: "not_found"}, 404);
     SCRIPT
 
 end
