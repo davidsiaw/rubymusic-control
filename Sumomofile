@@ -9,7 +9,7 @@ if ENV["CLOUDFLARE_EMAIL"]
 
     config_contents = File.read("ui/main.j")
 
-    File.write("ui/main.j", config_contents.gsub("http://192.168.1.15:5000", api_url))
+    File.write("ui/main.j", config_contents.gsub("http://192.168.1.15:5000", "https://#{api_url}"))
 
     `cd ui && bundle exec chino build`
     `cp ui/favicon.ico ui/build/`
@@ -19,6 +19,7 @@ if ENV["CLOUDFLARE_EMAIL"]
 end
 
 cdn = make_cdn_from_dir(
+    cert: certificate,
     domain: ui_url, 
     dns: cloudflare_dns(key: key, email: email), 
     dir: "ui/build", 
@@ -36,16 +37,86 @@ api = make_api api_url,
         }
     ] do
 
-    GET "/page/:pageid", :pageid, <<-SCRIPT
-        respond_with ({message: pageid, params: params});
+    SCRIPT <<-SCRIPT
+        const crypto = require("crypto");
     SCRIPT
 
-    GET "/best_girl", <<-SCRIPT
-        respond_with ({best_girl_is: "Ruby"});
+    GET "/api/session", :api_token, <<-SCRIPT
+        Store.get("tokens/"+api_token,
+        function(data)
+        {
+            Store.get("users/"+data.user,
+            function(data)
+            {
+                if (data.api_token === api_token)
+                {
+                    respond_with ({message: "ok", api_token: data.api_token}, 200);
+                }
+                else
+                {
+                    respond_with ({message: "not_found"}, 404);
+                }
+            },
+            function(err)
+            {
+                respond_with ({message: "not_found"}, 404);
+            })
+        },
+        function(err)
+        {
+            respond_with ({message: "not_found"}, 404);
+        })
+
     SCRIPT
 
-    GET "/*", <<-SCRIPT
-        respond_with ({error: "not_found"}, 404);
+    POST "/api/session", :username, :password, <<-SCRIPT
+
+        Store.get("users/"+username,
+        function(data)
+        {
+            const hash = crypto.createHash('sha256', "")
+                               .update(password)
+                               .update(data.salt)
+                               .digest('hex');
+
+            if (hash === data.password_hash)
+            {
+                crypto.randomBytes(16, (err, buf) => {
+                    if (err) throw err;
+                    data.api_token = buf.toString('hex')
+
+                    Store.set("users/"+username, data,
+                    function()
+                    {
+                        Store.set("tokens/"+data.api_token, {user: data.username},
+                        function()
+                        {
+                            respond_with ({message: "ok", api_token: data.api_token}, 200);
+                        },
+                        function(err)
+                        {
+                            console.log("Error saving token")
+                            respond_with ({message: "not_found"}, 404);
+                        });
+                    },
+                    function(err)
+                    {
+                        console.log("Error saving user")
+                        respond_with ({message: "not_found"}, 404);
+                    });
+                });
+            }
+            else
+            {
+                respond_with ({message: "not_found"}, 404);
+            }
+
+        },
+        function(err)
+        {
+            respond_with ({message: "not_found"}, 404);
+        })
+
     SCRIPT
 
 end

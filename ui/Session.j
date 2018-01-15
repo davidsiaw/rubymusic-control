@@ -18,7 +18,7 @@ var _static_session = nil;
     var request = [CPURLRequest requestWithURL:[CPString stringWithFormat:"%@%@", API_URL, "/api/session"]];
     [request setHTTPMethod: "POST"];
     [request setHTTPBody: JSON.stringify({
-                   email: username,
+                username: username,
                 password: password
     })];
     [request setValue:"application/json" forHTTPHeaderField:"Content-Type"];
@@ -45,14 +45,6 @@ var _static_session = nil;
                 window.localStorage.api_token = apiToken;
             }
 
-            if ( [self.delegate respondsToSelector:@selector(loginSucceeded:)] )
-            {
-                [self.delegate loginSucceeded:self];
-            }
-        }
-        else if (data.message)
-        {
-            isLoggedIn = true;
             if ( [self.delegate respondsToSelector:@selector(loginSucceeded:)] )
             {
                 [self.delegate loginSucceeded:self];
