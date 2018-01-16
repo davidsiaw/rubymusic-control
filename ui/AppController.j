@@ -1,6 +1,8 @@
 @import <Foundation/Foundation.j>
 @import <AppKit/AppKit.j>
 
+@import "ListWindowController.j"
+
 @import "LoginView.j"
 @import "Session.j"
 
@@ -32,6 +34,20 @@
     [menu removeItemAtIndex:0];
     [menu removeItemAtIndex:0];
     [menu removeItemAtIndex:0];
+
+    var openMenuItem = [menu addItemWithTitle:"Library" action:nil keyEquivalent:""];
+
+    var openMenu = [CPMenu new];
+    [menu setSubmenu:openMenu forItem:openMenuItem];
+
+    [openMenu addItemWithTitle:"View" action:@selector(openLibrary:) keyEquivalent:""];
+}
+
+- (void)openLibrary:(id)sender
+{
+    var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,50,700,500) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
+    var windowController = [[ListWindowController alloc] initWithWindow:window];
+    [windowController showWindow:window];
 }
 
 - (void)userClickedLoginButton:(id)sender
