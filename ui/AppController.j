@@ -6,65 +6,83 @@
 @import "LoginView.j"
 @import "Session.j"
 
+SONG_MODEL = {
+  type: "Song",
+  fields: {
+    song_name: {},
+    artist_name: {},
+    url: {},
+  }
+}
 
 @implementation AppController : CPObject
 {
-    LoginView loginView;
+  LoginView loginView;
 }
 
 - (void)applicationDidFinishLaunching:(CPNotification)aNotification
 {
-    var theWindow = [[CPWindow alloc] initWithContentRect:CGRectMakeZero() styleMask:CPBorderlessBridgeWindowMask],
-        contentView = [theWindow contentView];
+  var theWindow = [[CPWindow alloc] initWithContentRect:CGRectMakeZero() styleMask:CPBorderlessBridgeWindowMask],
+      contentView = [theWindow contentView];
 
-    loginView = [[LoginView alloc] initWithFrame:[contentView frame]];
-    [loginView setDelegate:self];
-    [loginView setLoading:YES];
-    [contentView addSubview: loginView];
+  loginView = [[LoginView alloc] initWithFrame:[contentView frame]];
+  [loginView setDelegate:self];
+  [loginView setLoading:YES];
+  [contentView addSubview: loginView];
 
-    [[Session instance] setDelegate:self];
-    [[Session instance] checkToken];
+  [[Session instance] setDelegate:self];
+  [[Session instance] checkToken];
 
-    [theWindow orderFront:self];
+  [theWindow orderFront:self];
 
-    // removeAllItems doesnt seem to work on the main menu
-    var menu = [[CPApplication sharedApplication] mainMenu];
-    [menu removeItemAtIndex:0];
-    [menu removeItemAtIndex:0];
-    [menu removeItemAtIndex:0];
-    [menu removeItemAtIndex:0];
-    [menu removeItemAtIndex:0];
+  // removeAllItems doesnt seem to work on the main menu
+  var menu = [[CPApplication sharedApplication] mainMenu];
+  [menu removeItemAtIndex:0];
+  [menu removeItemAtIndex:0];
+  [menu removeItemAtIndex:0];
+  [menu removeItemAtIndex:0];
+  [menu removeItemAtIndex:0];
 
-    var openMenuItem = [menu addItemWithTitle:"Library" action:nil keyEquivalent:""];
+  var openMenuItem = [menu addItemWithTitle:"File" action:nil keyEquivalent:""];
 
-    var openMenu = [CPMenu new];
-    [menu setSubmenu:openMenu forItem:openMenuItem];
+  var openMenu = [CPMenu new];
+  [menu setSubmenu:openMenu forItem:openMenuItem];
 
-    [openMenu addItemWithTitle:"View" action:@selector(openLibrary:) keyEquivalent:""];
+  [openMenu addItemWithTitle:"Library" action:@selector(openLibrary:) keyEquivalent:""];
+  [openMenu addItemWithTitle:"Default Playlist" action:@selector(openDefaultPlaylist:) keyEquivalent:""];
+  [openMenu addItemWithTitle:"Playlists" action:@selector(openPlaylists:) keyEquivalent:""];
 }
 
 - (void)openLibrary:(id)sender
 {
-    var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,50,700,500) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
-    var windowController = [[ListWindowController alloc] initWithWindow:window];
-    [windowController showWindow:window];
+        
+  var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,50,700,300) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
+  var windowController = [[ListWindowController alloc] initWithWindow:window andModel:SONG_MODEL andTitle:"Library" withNature:"library"];
+  [windowController showWindow:window];
+}
+
+- (void)openDefaultPlaylist:(id)sender
+{       
+  var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,400,700,300) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
+  var windowController = [[ListWindowController alloc] initWithWindow:window andModel:SONG_MODEL andTitle:"Default Playlist" withNature:"list"];
+  [windowController showWindow:window];
 }
 
 - (void)userClickedLoginButton:(id)sender
 {
-    [[Session instance] loginWithUsername:[loginView username] andPassword:[loginView password]];
-    [loginView setLoading:YES];
+  [[Session instance] loginWithUsername:[loginView username] andPassword:[loginView password]];
+  [loginView setLoading:YES];
 }
 
 - (void)loginFailed:(id)sender
 {
-    [loginView setLoading:NO];
+  [loginView setLoading:NO];
 }
 
 - (void)loginSucceeded:(id)sender
 {
-    [loginView removeFromSuperview];
-    [CPMenu setMenuBarVisible:YES];
+  [loginView removeFromSuperview];
+  [CPMenu setMenuBarVisible:YES];
 }
 
 @end

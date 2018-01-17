@@ -1,8 +1,6 @@
 @import <Foundation/Foundation.j>
 @import <AppKit/AppKit.j>
 
-ListItemDragType = "ListItemDragType"
-
 @implementation ListTableView : CPView
 {
   CPScrollView scrollView;
@@ -30,9 +28,14 @@ ListItemDragType = "ListItemDragType"
   return self;
 }
 
+- (CPOutlineView)table
+{
+  return tableView;
+}
+
 - (id)dataSource
 {
-  [tableView dataSource];
+  return [tableView dataSource];
 }
 
 - (void)setDataSource:(id)aDataSource
@@ -42,7 +45,7 @@ ListItemDragType = "ListItemDragType"
 
 - (id)delegate
 {
-  [tableView delegate];
+  return [tableView delegate];
 }
 
 - (void)setDelegate:(id)aDelegate
@@ -58,7 +61,6 @@ ListItemDragType = "ListItemDragType"
     [col setHidden: true];
     [tableView addTableColumn: col];
 
-    [tableView registerForDraggedTypes:[ListItemDragType]];
 
     var fields = model.fields;
 
@@ -140,41 +142,115 @@ ListItemDragType = "ListItemDragType"
   id delegate @accessors;
 
   id model;
+  CPString nature;
 
   int dataLength;
   id data;
 
   CPArray _draggedItems;
+}
 
+- (CPArray)draggedItems
+{
+  return draggedItems
 }
 
 - (BOOL)outlineView:(CPOutlineView)anOutlineView writeItems:(CPArray)theItems toPasteboard:(CPPasteBoard)thePasteBoard
 {
+    var dragtype = get_drag_type(self.model.type+self.nature)
     _draggedItems = theItems;
-    [thePasteBoard declareTypes:[ListItemDragType] owner:self];
-    [thePasteBoard setData:[CPKeyedArchiver archivedDataWithRootObject:theItems] forType:ListItemDragType];
+    [thePasteBoard declareTypes:[dragtype] owner:self];
+    [thePasteBoard setData:[CPKeyedArchiver archivedDataWithRootObject:theItems] forType:dragtype];
 
     return YES;
 }
 
-- (CPDragOperation)outlineView:(CPOutlineView)anOutlineView validateDrop:(id /*< CPDraggingInfo >*/)theInfo proposedItem:(id)theItem proposedChildIndex:(int)theIndex
+- (CPDragOperation)outlineView:(CPOutlineView)outlineView validateDrop:(CPDraggingInfo)theInfo proposedItem:(id)theItem proposedChildIndex:(int)theIndex
 {
-    CPLog.debug(@"validate item: %@ at index: %i", theItem, theIndex);
+    CPLog.debug(@"validate item: %@, from idx %@, at index: %i", theItem, [theInfo draggingSource], theIndex);
 
     if (theItem === nil)
     {
-        [anOutlineView setDropItem:nil dropChildIndex:theIndex];
-        return CPDragOperationEvery;
+
+      [outlineView setDropItem:nil dropChildIndex:theIndex];
+      if ([[theInfo draggingSource] UID] === [outlineView UID])
+      {
+        return CPDragOperationMove;
+      }
+
+      if (nature === "library")
+      {
+        return CPDragOperationMove;
+      }
+      else
+      {
+        return CPDragOperationCopy;
+      }
     }
 
     return CPDragOperationNone;
 }
 
-- (BOOL)outlineView:(CPOutlineView)outlineView acceptDrop:(id /*< CPDraggingInfo >*/)theInfo item:(id)theItem childIndex:(int)theIndex
+- (BOOL)outlineView:(CPOutlineView)outlineView acceptDrop:(CPDraggingInfo)theInfo item:(id)theItem childIndex:(int)theIndex
 {
   if(theItem)
   {
     return NO;
+  }
+
+  if ([[theInfo draggingSource] UID] === [outlineView UID])
+  {
+    // Internal drop (move)
+    var newArray = []
+    var i=0;
+
+    var count = [_draggedItems count];
+
+    var draggedOrdinals = {}
+
+    for (i=0; i<count; ++i)
+    {
+      // Record dragged items
+      draggedOrdinals[ [[_draggedItems objectAtIndex:i] valueForKey:"ord"] ] = true;
+    }
+
+    // Insert items before
+    for(i=0;i<theIndex;i++)
+    {
+      if (draggedOrdinals[i])
+      {
+        continue;
+      }
+      newArray.push(data[i])
+    }
+
+    // Insert dragged items
+    for (i=0; i<count; ++i)
+    {
+      newArray.push([_draggedItems objectAtIndex:i])
+    }
+
+    for(i=theIndex;i<dataLength;i++)
+    {
+      if (draggedOrdinals[i])
+      {
+        continue;
+      }
+      newArray.push(data[i])
+    }
+
+    data = {}
+    for (i=0;i<newArray.length;i++)
+    {
+      var obj = newArray[i];
+      [obj setValue:i forKey:"ord"];
+      data[i] = obj;
+    }
+
+    console.log(newArray)
+    console.log(data)
+
+    return YES;
   }
 
   if (theIndex == dataLength)
@@ -182,24 +258,24 @@ ListItemDragType = "ListItemDragType"
     return YES;
   }
 
-
   return NO;
 }
 
 
-- (id)initWithModel:(id)aModel
+- (id)initWithModel:(id)aModel andNature:(CPString)aNature
 {
   self = [super init];
   if (self)
   {
     self.model = aModel
+    self.nature = aNature
     self.dataLength = 3
 
     self.data = {}
 
-    self.data[0] = [CPDictionary fromJSObject: {id: 0, song_name: "7 Senses", artist_name: "Wake Up Girls!", url: "https://7senses.flac"}]
-    self.data[1] = [CPDictionary fromJSObject: {id: 1, song_name: "Change!", artist_name: "765 All Stars", url: "https://change.flac"}]
-    self.data[2] = [CPDictionary fromJSObject: {id: 2, song_name: "Taiyou wo Oikakero", artist_name: "Aqours", url: "https://tokotoko.flac"}]
+    self.data[0] = [CPDictionary fromJSObject: {ord: 0, id: "a", song_name: "7 Senses", artist_name: "Wake Up Girls!", url: "https://7senses.flac"}]
+    self.data[1] = [CPDictionary fromJSObject: {ord: 1, id: "b", song_name: "Change!", artist_name: "765 All Stars", url: "https://change.flac"}]
+    self.data[2] = [CPDictionary fromJSObject: {ord: 2, id: "c", song_name: "Taiyou wo Oikakero", artist_name: "Aqours", url: "https://tokotoko.flac"}]
 
   }
   return self;
@@ -318,24 +394,35 @@ ListItemDragType = "ListItemDragType"
   ListTableView view;
   ListTableDataSource dataSource;
   id model;
+  CPString nature;
   id delegate @accessors;
 }
 
-- (id)initWithModel:(id)aModel
+- (id)initWithModel:(id)aModel withNature:(CPString)aNature
 {
   self = [super init];
   if (self)
   {
+    self.model = aModel;
+    self.nature = aNature;
 
     self.view = [[ListTableView alloc] initWithFrame:CGRectMakeZero()];
-    self.dataSource = [[ListTableDataSource alloc] initWithModel:aModel];
+    self.dataSource = [[ListTableDataSource alloc] initWithModel:aModel andNature:aNature];
     [self.view setDataSource: self.dataSource];
     [self.view setDelegate: self.dataSource];
 
     [self.dataSource setDelegate: self];
 
-    self.model = aModel;
     [self.view applyModel: aModel];
+
+    var dragtypes = []
+    dragtypes.push(get_drag_type(self.model.type+self.nature));
+
+    if (self.nature == "list")
+    {
+      dragtypes.push(get_drag_type(self.model.type+"library"));
+    }
+    [[self.view table] registerForDraggedTypes:dragtypes];
   }
   return self;
 }
@@ -373,26 +460,19 @@ ListItemDragType = "ListItemDragType"
   ListTableView _tableView;
 }
 
-- (id)initWithWindow:(CPWindow)window
+- (id)initWithWindow:(CPWindow)window andModel:(id)model andTitle:(CPString)title withNature:(CPString)nature
 {
   self = [super initWithWindow:window];
   if(self)
   {
-    [_window setTitle:"List"];
+    [_window setTitle:title];
 
-    var model = {
-      fields: {
-        song_name: {},
-        artist_name: {},
-        url: {},
-      }
-    }
-
-    _tableController = [[ListTableViewController alloc] initWithModel: model];
+    _tableController = [[ListTableViewController alloc] initWithModel:model withNature:nature];
     [_tableController setDelegate:self];
     _tableView = [_tableController view];
     [_tableView setFrame:[[window contentView] bounds]];
     [_tableView setAutoresizingMask: CPViewWidthSizable | CPViewHeightSizable];
+
     [[window contentView] addSubview:_tableView];
 
   }
