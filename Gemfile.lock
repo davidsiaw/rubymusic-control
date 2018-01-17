@@ -1,5 +1,5 @@
 PATH
-  remote: /Users/david/programs/sumomo
+  remote: /home/david/programs/sumomo
   specs:
     sumomo (0.8.0)
       activesupport
@@ -18,13 +18,13 @@ GEM
       i18n (~> 0.7)
       minitest (~> 5.1)
       tzinfo (~> 1.1)
-    aws-sdk (2.10.118)
-      aws-sdk-resources (= 2.10.118)
-    aws-sdk-core (2.10.118)
+    aws-sdk (2.10.9)
+      aws-sdk-resources (= 2.10.9)
+    aws-sdk-core (2.10.9)
       aws-sigv4 (~> 1.0)
       jmespath (~> 1.0)
-    aws-sdk-resources (2.10.118)
-      aws-sdk-core (= 2.10.118)
+    aws-sdk-resources (2.10.9)
+      aws-sdk-core (= 2.10.9)
     aws-sigv4 (1.0.2)
     chino (0.1.5)
       activesupport
