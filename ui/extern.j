@@ -18,3 +18,24 @@ function get_drag_type(type)
 	}
 	return DRAG_TYPES[type]
 }
+
+SONG_MODEL = {
+  type: "Song",
+  fields: {
+    name: {},
+    artist_name: {},
+    url: {},
+    tags: {},
+  }
+}
+
+BOT_MODEL = {
+  type: "Bot",
+  fields: {
+    name: {},
+    token: {},
+    location: {},
+    playlist: {},
+    status: {},
+  }
+}

@@ -34,7 +34,7 @@
 {
     CPLog.debug(@"validate item: %@, from idx %@, at index: %i", theItem, [theInfo draggingSource], theIndex);
 
-    if (theItem === nil)
+    if (theItem === nil && nature === "list")
     {
 
       [outlineView setDropItem:nil dropChildIndex:theIndex];
@@ -63,7 +63,7 @@
     return NO;
   }
 
-  if ([[theInfo draggingSource] UID] === [outlineView UID])
+  if ([[theInfo draggingSource] UID] === [outlineView UID] && self.nature === "list")
   {
     // Internal drop (move)
     var newArray = []
@@ -115,8 +115,47 @@
     return YES;
   }
 
-  if (theIndex == dataLength)
+  if (self.nature === "list")
   {
+    // External drop (copy)
+    var newArray = []
+    var i=0;
+
+    var draggedData = [[theInfo draggingPasteboard] dataForType:get_drag_type(self.model.type+"list")];
+    if (!draggedData)
+    {
+    	draggedData = [[theInfo draggingPasteboard] dataForType:get_drag_type(self.model.type+"library")];
+    }
+
+    var toBeInserted = [CPKeyedUnarchiver unarchiveObjectWithData:draggedData];
+    var count = [toBeInserted count];
+
+    // Insert items before
+    for(i=0;i<theIndex;i++)
+    {
+      newArray.push(data[i])
+    }
+
+    // Insert dragged items
+    for (i=0; i<count; ++i)
+    {
+      newArray.push([toBeInserted objectAtIndex:i])
+    }
+
+    for(i=theIndex;i<dataLength;i++)
+    {
+      newArray.push(data[i])
+    }
+
+    data = {}
+    for (i=0;i<newArray.length;i++)
+    {
+      var obj = newArray[i];
+      [obj setValue:i forKey:"ord"];
+      data[i] = obj;
+    }
+    dataLength = newArray.length
+
     return YES;
   }
 
@@ -135,9 +174,9 @@
 
     self.data = {}
 
-    self.data[0] = [CPDictionary fromJSObject: {ord: 0, id: "a", song_name: "7 Senses", artist_name: "Wake Up Girls!", url: "https://7senses.flac"}]
-    self.data[1] = [CPDictionary fromJSObject: {ord: 1, id: "b", song_name: "Change!", artist_name: "765 All Stars", url: "https://change.flac"}]
-    self.data[2] = [CPDictionary fromJSObject: {ord: 2, id: "c", song_name: "Taiyou wo Oikakero", artist_name: "Aqours", url: "https://tokotoko.flac"}]
+    self.data[0] = [CPDictionary fromJSObject: {ord: 0, id: "a", name: "7 Senses", artist_name: "Wake Up Girls!", url: "https://7senses.flac"}]
+    self.data[1] = [CPDictionary fromJSObject: {ord: 1, id: "b", name: "Change!", artist_name: "765 All Stars", url: "https://change.flac"}]
+    self.data[2] = [CPDictionary fromJSObject: {ord: 2, id: "c", name: "Taiyou wo Oikakero", artist_name: "Aqours", url: "https://tokotoko.flac"}]
 
   }
   return self;

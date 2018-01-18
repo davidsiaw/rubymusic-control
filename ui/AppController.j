@@ -7,14 +7,6 @@
 @import "LoginView.j"
 @import "Session.j"
 
-SONG_MODEL = {
-  type: "Song",
-  fields: {
-    song_name: {},
-    artist_name: {},
-    url: {},
-  }
-}
 
 @implementation AppController : CPObject
 {
@@ -44,14 +36,22 @@ SONG_MODEL = {
   [menu removeItemAtIndex:0];
   [menu removeItemAtIndex:0];
 
-  var openMenuItem = [menu addItemWithTitle:"File" action:nil keyEquivalent:""];
+  var fileMenuItem = [menu addItemWithTitle:"Media" action:nil keyEquivalent:""];
 
-  var openMenu = [CPMenu new];
-  [menu setSubmenu:openMenu forItem:openMenuItem];
+  var fileMenu = [CPMenu new];
+  [menu setSubmenu:fileMenu forItem:fileMenuItem];
 
-  [openMenu addItemWithTitle:"Library" action:@selector(openLibrary:) keyEquivalent:""];
-  [openMenu addItemWithTitle:"Default Playlist" action:@selector(openDefaultPlaylist:) keyEquivalent:""];
-  [openMenu addItemWithTitle:"Playlists" action:@selector(openPlaylists:) keyEquivalent:""];
+  [fileMenu addItemWithTitle:"Library" action:@selector(openLibrary:) keyEquivalent:""];
+  [fileMenu addItemWithTitle:"Default Playlist" action:@selector(openDefaultPlaylist:) keyEquivalent:""];
+  [fileMenu addItemWithTitle:"Playlists" action:@selector(openPlaylists:) keyEquivalent:""];
+
+
+  var botMenuItem = [menu addItemWithTitle:"Bots" action:nil keyEquivalent:""];
+
+  var botMenu = [CPMenu new];
+  [menu setSubmenu:botMenu forItem:botMenuItem];
+
+  [botMenu addItemWithTitle:"List" action:@selector(showBots:) keyEquivalent:""];
 }
 
 - (void)openLibrary:(id)sender
@@ -66,6 +66,13 @@ SONG_MODEL = {
 {       
   var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,400,700,300) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
   var windowController = [[ListWindowController alloc] initWithWindow:window andModel:SONG_MODEL andTitle:"Default Playlist" withNature:"list"];
+  [windowController showWindow:window];
+}
+
+- (void)showBots:(id)sender
+{       
+  var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,400,700,300) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
+  var windowController = [[ListWindowController alloc] initWithWindow:window andModel:BOT_MODEL andTitle:"Music Bots" withNature:"library"];
   [windowController showWindow:window];
 }
 
