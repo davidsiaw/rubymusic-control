@@ -3,7 +3,7 @@
 
 @implementation ListTableDataSource : CPObject
 {
-  CPView dataView @accessors;
+  ListTableView dataView @accessors;
   id delegate @accessors;
 
   id model;
@@ -22,12 +22,17 @@
 
 - (BOOL)outlineView:(CPOutlineView)anOutlineView writeItems:(CPArray)theItems toPasteboard:(CPPasteBoard)thePasteBoard
 {
-    var dragtype = get_drag_type(self.model.type+self.nature)
-    _draggedItems = theItems;
-    [thePasteBoard declareTypes:[dragtype] owner:self];
-    [thePasteBoard setData:[CPKeyedArchiver archivedDataWithRootObject:theItems] forType:dragtype];
+  if ([dataView inEditMode])
+  {
+    return NO;
+  }
 
-    return YES;
+  var dragtype = get_drag_type(self.model.type+self.nature)
+  _draggedItems = theItems;
+  [thePasteBoard declareTypes:[dragtype] owner:self];
+  [thePasteBoard setData:[CPKeyedArchiver archivedDataWithRootObject:theItems] forType:dragtype];
+
+  return YES;
 }
 
 - (CPDragOperation)outlineView:(CPOutlineView)outlineView validateDrop:(CPDraggingInfo)theInfo proposedItem:(id)theItem proposedChildIndex:(int)theIndex
@@ -124,7 +129,7 @@
     var draggedData = [[theInfo draggingPasteboard] dataForType:get_drag_type(self.model.type+"list")];
     if (!draggedData)
     {
-    	draggedData = [[theInfo draggingPasteboard] dataForType:get_drag_type(self.model.type+"library")];
+      draggedData = [[theInfo draggingPasteboard] dataForType:get_drag_type(self.model.type+"library")];
     }
 
     var toBeInserted = [CPKeyedUnarchiver unarchiveObjectWithData:draggedData];
@@ -174,9 +179,9 @@
 
     self.data = {}
 
-    self.data[0] = [CPDictionary fromJSObject: {ord: 0, id: "a", name: "7 Senses", artist_name: "Wake Up Girls!", url: "https://7senses.flac"}]
-    self.data[1] = [CPDictionary fromJSObject: {ord: 1, id: "b", name: "Change!", artist_name: "765 All Stars", url: "https://change.flac"}]
-    self.data[2] = [CPDictionary fromJSObject: {ord: 2, id: "c", name: "Taiyou wo Oikakero", artist_name: "Aqours", url: "https://tokotoko.flac"}]
+    //self.data[0] = [CPDictionary fromJSObject: {ord: 0, id: "a", name: "7 Senses", artist_name: "Wake Up Girls!", url: "https://7senses.flac"}]
+    //self.data[1] = [CPDictionary fromJSObject: {ord: 1, id: "b", name: "Change!", artist_name: "765 All Stars", url: "https://change.flac"}]
+    //self.data[2] = [CPDictionary fromJSObject: {ord: 2, id: "c", name: "Taiyou wo Oikakero", artist_name: "Aqours", url: "https://tokotoko.flac"}]
 
   }
   return self;
@@ -276,14 +281,81 @@
   return undefined;
 }
 
-- (BOOL)tableView:(CPTableView)aTableView shouldEditTableColumn:(CPTableColumn)aTableColumn row:(CPInteger)rowIndex
+- (void)outlineView:(CPOutlineView)outlineView setObjectValue:(id)object forTableColumn:(CPTableColumn)tableColumn byItem:(id)item
 {
+  [item setValue:object forKey:[tableColumn identifier]];
+}
+
+- (BOOL)outlineView:(CPOutlineView)outlineView shouldEditTableColumn:(CPTableColumn)tableColumn item:(id)item
+{
+  if (self.nature === "list")
+  {
+    return NO;
+  }
+
+  if ([tableColumn identifier] === "ord")
+  {
+    return NO;
+  }
+  return YES;
+}
+
+- (void)outlineView:(CPOutlineView)outlineView sortDescriptorsDidChange:(CPArray)oldDescriptors
+{
+  var descriptors = [outlineView sortDescriptors];
+  var idx = 0;
+  var newArray = [];
+
+  for(idx=0; idx<self.dataLength; idx++)
+  {
+    newArray.push(self.data[idx])
+  }
+
+  for (idx=descriptors.length-1; idx >= 0; idx--)
+  {
+    newArray.sort(function(a,b)
+    {
+      return [descriptors[idx] compareObject:a withObject:b];
+    })
+  }
+
+  self.data = {}
+  
+  for (idx=0; idx<newArray.length; idx++)
+  {
+    var obj = newArray[idx];
+    [obj setValue:idx forKey:"ord"];
+    self.data[idx] = obj;
+  }
+
+  [outlineView reloadData];
+}
+
+- (BOOL)canAdd
+{
+  if (self.nature === "library")
+  {
+    return YES;
+  }
   return NO;
 }
 
-- (void)tableView:(CPTableView)tableView sortDescriptorsDidChange:(CPArray)oldDescriptors
+- (void)addClicked:(id)sender
 {
-  [tableView reloadData];
+  if (self.nature === "library")
+  {
+    var obj = {ord: dataLength}
+
+    var fields = model.fields;
+
+    for (var key in fields)
+    {
+      obj[key] = "<" + key + ">"
+    }
+    self.data[dataLength] = [CPDictionary fromJSObject: obj]
+    dataLength += 1
+    [[dataView tableView] reloadData];
+  }
 }
 
 @end

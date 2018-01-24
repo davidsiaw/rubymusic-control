@@ -5,6 +5,9 @@
 {
   CPScrollView scrollView;
   CPOutlineView tableView @accessors;
+
+  CPButton addButton;
+  CPButton manageButton;
 }
 
 - (id)initWithFrame:(CGRect)aFrame
@@ -12,20 +15,58 @@
   self = [super initWithFrame:aFrame];
   if (self)
   {
-    scrollView = [[CPScrollView alloc] initWithFrame:[self bounds]];
+    var scrollViewBounds = [self bounds];
+    scrollViewBounds.size.height -= 40;
+    scrollViewBounds.origin.y = 40;
+
+    scrollView = [[CPScrollView alloc] initWithFrame:scrollViewBounds];
     tableView = [[CPOutlineView alloc] initWithFrame:CGRectMakeZero()];
     [tableView setUsesAlternatingRowBackgroundColors:YES];
     [tableView setAutoresizingMask:  CPViewWidthSizable | CPViewHeightSizable];
     [scrollView setAutoresizingMask: CPViewWidthSizable | CPViewHeightSizable];
     [scrollView setHasHorizontalScroller: YES];
 
-
     [scrollView setDocumentView:tableView];
 
     [self addSubview:scrollView];
 
+    addButton = [CPButton buttonWithTitle:"Add"];
+    [addButton setFrameOrigin:CGPointMake(8,8)];
+    [self addSubview:addButton];
+
+    manageButton = [CPButton buttonWithTitle:"Manage Mode"];
+    [manageButton setFrameOrigin:CGPointMake([addButton bounds].size.width + 16, 8)];
+    [manageButton setButtonType:CPToggleButton];
+    [manageButton setAlternateTitle:@"Edit Mode"];
+    [self addSubview:manageButton];
+
   }
   return self;
+}
+
+- (void)setCanAdd:(BOOL)aValue
+{
+    [addButton setHidden:!aValue];
+}
+
+- (void)setCanEdit:(BOOL)aValue
+{
+    [manageButton setHidden:!aValue];
+}
+
+- (BOOL)canAdd
+{
+    return ![addButton isHidden];
+}
+
+- (BOOL)canEdit
+{
+    return ![manageButton isHidden];
+}
+
+- (BOOL)inEditMode
+{
+    return [manageButton state] === CPOnState;
 }
 
 - (CPOutlineView)table
@@ -52,6 +93,17 @@
 {
   [tableView setDelegate:aDelegate];
   [aDelegate setDataView:self];
+
+  if ( [[self delegate] canAdd] )
+  {
+    [addButton setTarget: aDelegate];
+    [addButton setAction: @selector(addClicked:)];
+    [addButton setEnabled: YES];
+  }
+  else
+  {
+    [addButton setEnabled: NO];
+  }
 }
 
 - (void)applyModel:(id)model
@@ -94,6 +146,14 @@
             [cbv setEnabled: fields[key].editable];
             [col setDataView:cbv];
         }
+
+        if (fields[key].type === "tags")
+        {
+            var cbv = [[CPTokenField alloc] initWithFrame:[self bounds]];
+            [cbv setEnabled: fields[key].editable];
+            [col setDataView:cbv];
+        }
+        
 
         //if (fields[key].type === "link")
         //{

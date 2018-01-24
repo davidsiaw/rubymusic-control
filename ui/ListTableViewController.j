@@ -36,6 +36,8 @@
     if (self.nature == "list")
     {
       dragtypes.push(get_drag_type(self.model.type+"library"));
+      [self.view setCanAdd:YES];
+      [self.view setCanEdit:NO];
     }
     [[self.view table] registerForDraggedTypes:dragtypes];
   }
