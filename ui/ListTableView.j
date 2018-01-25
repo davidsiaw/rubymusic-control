@@ -23,6 +23,7 @@
     tableView = [[CPOutlineView alloc] initWithFrame:CGRectMakeZero()];
     [tableView setUsesAlternatingRowBackgroundColors:YES];
     [tableView setAutoresizingMask:  CPViewWidthSizable | CPViewHeightSizable];
+    [tableView setRowHeight:35]
     [scrollView setAutoresizingMask: CPViewWidthSizable | CPViewHeightSizable];
     [scrollView setHasHorizontalScroller: YES];
 

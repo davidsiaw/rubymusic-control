@@ -283,6 +283,7 @@
 
 - (void)outlineView:(CPOutlineView)outlineView setObjectValue:(id)object forTableColumn:(CPTableColumn)tableColumn byItem:(id)item
 {
+  console.log(object)
   [item setValue:object forKey:[tableColumn identifier]];
 }
 
