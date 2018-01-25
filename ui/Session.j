@@ -6,6 +6,9 @@ var _static_session = nil;
     id delegate @accessors;
     BOOL isLoggedIn @accessors;
     CPString apiToken;
+
+    id songs;
+    id playlists;
 }
 
 - (CPString)apiToken
@@ -23,6 +26,36 @@ var _static_session = nil;
     })];
     [request setValue:"application/json" forHTTPHeaderField:"Content-Type"];
     [CPURLConnection connectionWithRequest:request delegate:self];
+}
+
+- (void)reloadSongLibraryAndNotify:(id)anObject
+{
+
+}
+
+- (void)reloadPlaylistNamed:(CPString)name andNotify:(id)anObject
+{
+
+}
+
+- (void)saveSongLibrary:(id)songs
+{
+
+}
+
+- (void)saveDefaultPlaylist:(CPArray)playList
+{
+
+}
+
+- (id)songList
+{
+	return songs;
+}
+
+- (id)defaultPlaylist
+{
+	return playlists[""];
 }
 
 - (void)checkToken
@@ -78,6 +111,8 @@ var _static_session = nil;
         isLoggedIn = false;
         delegate = nil;
         apiToken = nil;
+        playlists = {"": []};
+        songs = {};
         if (typeof(Storage) !== "undefined")
         {
             apiToken = window.localStorage.getItem("api_token");
