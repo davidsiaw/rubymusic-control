@@ -154,6 +154,13 @@
             [cbv setEnabled: fields[key].editable];
             [col setDataView:cbv];
         }
+
+        if (fields[key].type === "secure")
+        {
+            var cbv = [[CPSecureTextField alloc] initWithFrame:[self bounds]];
+            [cbv setEnabled: fields[key].editable];
+            [col setDataView:cbv];
+        }
         
 
         //if (fields[key].type === "link")

@@ -9,6 +9,10 @@ var _static_session = nil;
 
     id songs;
     id playlists;
+
+    id notifyList;
+
+    int requestCount;
 }
 
 - (CPString)apiToken
@@ -28,34 +32,14 @@ var _static_session = nil;
     [CPURLConnection connectionWithRequest:request delegate:self];
 }
 
-- (void)reloadSongLibraryAndNotify:(id)anObject
-{
-
-}
-
-- (void)reloadPlaylistNamed:(CPString)name andNotify:(id)anObject
-{
-
-}
-
-- (void)saveSongLibrary:(id)songs
-{
-
-}
-
-- (void)saveDefaultPlaylist:(CPArray)playList
-{
-
-}
-
 - (id)songList
 {
-	return songs;
+    return songs;
 }
 
 - (id)defaultPlaylist
 {
-	return playlists[""];
+    return playlists["default"];
 }
 
 - (void)checkToken
@@ -82,6 +66,24 @@ var _static_session = nil;
             {
                 [self.delegate loginSucceeded:self];
             }
+        }
+        else if (data.songs)
+        {
+            self.songs = data.songs
+            [notifyList[data.request_id] songsLoaded]
+        }
+        else if (data.playlist)
+        {
+            self.playlists[data.name] = data.playlist
+            [notifyList[data.request_id] playlistLoaded]
+        }
+        else if (data.saved_songs)
+        {
+            [self reloadSongLibraryAndNotify: notifyList[data.request_id]];
+        }
+        else if (data.saved_playlist)
+        {
+            [self reloadPlaylistNamed:data.saved_playlist andNotify:notifyList[data.request_id]];
         }
         else
         {
@@ -111,8 +113,10 @@ var _static_session = nil;
         isLoggedIn = false;
         delegate = nil;
         apiToken = nil;
-        playlists = {"": []};
+        playlists = {"default": []};
         songs = {};
+        notifyList = {};
+        requestCount = 0;
         if (typeof(Storage) !== "undefined")
         {
             apiToken = window.localStorage.getItem("api_token");

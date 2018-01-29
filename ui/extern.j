@@ -21,21 +21,22 @@ function get_drag_type(type)
 
 SONG_MODEL = {
   type: "Song",
+  slug: "songs",
   fields: {
            name: {editable: true},
     artist_name: {editable: true},
             url: {editable: true},
-           tags: {type: "tags", editable: true},
   }
 }
 
 BOT_MODEL = {
   type: "Bot",
+  slug: "bots",
   fields: {
-    name: {},
-    token: {},
-    location: {},
-    playlist: {},
-    status: {},
+           name: {editable: true},
+          token: {editable: true, type: "secure"},
+       location: {editable: true},
+       playlist: {},
+        playing: {editable: true, type: "boolean"},
   }
 }

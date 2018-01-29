@@ -41,7 +41,6 @@
 
     if (theItem === nil && nature === "list")
     {
-
       [outlineView setDropItem:nil dropChildIndex:theIndex];
       if ([[theInfo draggingSource] UID] === [outlineView UID])
       {
@@ -175,8 +174,8 @@
   {
     self.model = aModel
     self.nature = aNature
-    self.dataLength = 3
 
+    self.dataLength = -1
     self.data = {}
 
     //self.data[0] = [CPDictionary fromJSObject: {ord: 0, id: "a", name: "7 Senses", artist_name: "Wake Up Girls!", url: "https://7senses.flac"}]
@@ -185,6 +184,72 @@
 
   }
   return self;
+}
+
+- (void)resetData
+{
+  self.dataLength = -1;
+  self.data = {};
+}
+
+- (void)refreshFromServer
+{
+  [self getItemFromServerAtIndex:0];
+}
+
+- (void)getItemFromServerAtIndex:(int)item
+{
+  var descriptors = [[dataView tableView] sortDescriptors];
+  var sort = "id:a"
+
+  if(descriptors)
+  {
+    var idx = 0;
+    for (idx=descriptors.length-1; idx >= 0; idx--)
+    {
+      sort += "," + [descriptors[idx] key] + ":" + ([descriptors[idx] ascending] ? "a" : "d")
+    }
+
+  }
+
+  [SessionRequest GET:[CPString stringWithFormat:"/%@/%@", self.model.slug, self.nature]
+            forTarget:self
+            withQuery:"item=" + item + "&sort=" + sort
+            andNotify:@selector(dataDidLoad:)
+            otherwise:@selector(dataLoadDidError:)];
+}
+
+- (void)dataDidLoad:(id)loadedData
+{
+  if (loadedData.data_length !== Object.keys(loadedData.data).length)
+  {
+    console.log("invalid response: ", loadedData.dataLength, Object.keys(loadedData.data).length)
+    console.log(loadedData)
+    return;
+  }
+  self.dataLength = loadedData.data_length;
+  for (var idx in loadedData.data)
+  {
+    var obj = loadedData.data[idx];
+    obj.ord = idx;
+    self.data[idx] = [CPDictionary fromJSObject:obj];
+  }
+  [[dataView tableView] reloadData];
+}
+
+- (void)dataLoadDidError:(id)error
+{
+  console.log("dataLoadDidError", error)
+}
+
+- (void)modifyDidComplete:(id)data
+{
+  [self refreshFromServer];
+}
+
+- (void)modifyError:(id)error
+{
+  console.log("modifyError", error)
 }
 
 - (void)setFilter:(id)aFilter
@@ -198,15 +263,16 @@
   return [CPString stringWithFormat:@"<ListTableDataSource #%d>", 0];
 }
 
-- (CPInteger)numberOfRows
-{
-  return dataLength;
-}
-
 - (id)outlineView:(CPOutlineView)outlineView child:(CPInteger)index ofItem:(id)item
 {
   if (item === nil)
   {
+    if (!self.data[index])
+    {
+      [self getItemFromServerAtIndex:index];
+      return null;
+    }
+
     return self.data[index];
   }
 
@@ -222,6 +288,11 @@
 {
   if (item === nil)
   {
+    if (self.dataLength === -1)
+    {
+      [self refreshFromServer]
+      return 0;
+    }
     return dataLength;
   }
   return 0;
@@ -283,7 +354,13 @@
 
 - (void)outlineView:(CPOutlineView)outlineView setObjectValue:(id)object forTableColumn:(CPTableColumn)tableColumn byItem:(id)item
 {
-  console.log(object)
+  [SessionRequest POST:[CPString stringWithFormat:"/%@/%@/modify", self.model.slug, self.nature]
+            forTarget:self
+            withBody:{id: [item valueForKey:"id"], field: [tableColumn identifier], value: object}
+            andNotify:@selector(modifyDidComplete:)
+            otherwise:@selector(modifyError:)];
+
+
   [item setValue:object forKey:[tableColumn identifier]];
 }
 
@@ -303,6 +380,10 @@
 
 - (void)outlineView:(CPOutlineView)outlineView sortDescriptorsDidChange:(CPArray)oldDescriptors
 {
+  [self resetData];
+  [outlineView reloadData];
+  return;
+
   var descriptors = [outlineView sortDescriptors];
   var idx = 0;
   var newArray = [];
@@ -345,18 +426,105 @@
 {
   if (self.nature === "library")
   {
-    var obj = {ord: dataLength}
 
-    var fields = model.fields;
+    [SessionRequest POST:[CPString stringWithFormat:"/%@/%@", self.model.slug, self.nature]
+              forTarget:self
+              withBody:{}
+              andNotify:@selector(modifyDidComplete:)
+              otherwise:@selector(modifyError:)];
 
-    for (var key in fields)
-    {
-      obj[key] = "<" + key + ">"
-    }
-    self.data[dataLength] = [CPDictionary fromJSObject: obj]
-    dataLength += 1
-    [[dataView tableView] reloadData];
   }
+}
+
+
+@end
+
+@implementation SessionRequest : CPObject
+{
+  CPString path;
+  SEL action @accessors;
+  SEL errorAction @accessors;
+  id target @accessors;
+  CPString query @accessors;
+  CPString method @accessors;
+  id body @accessors;
+}
+
++ (void)GET:(CPString)aPath forTarget:(id)target withQuery:(CPString)query andNotify:(SEL)action otherwise:(SEL)errorAction
+{
+  var req = [[SessionRequest alloc] initRequestWithPath:aPath];
+  [req setQuery:query];
+  [req setAction:action];
+  [req setErrorAction:errorAction];
+  [req setTarget:target];
+  [req sendRequest];
+}
+
++ (void)POST:(CPString)aPath forTarget:(id)target withBody:(id)body andNotify:(SEL)action otherwise:(SEL)errorAction
+{
+  var req = [[SessionRequest alloc] initRequestWithPath:aPath];
+  [req setMethod:"POST"];
+  [req setBody:body];
+  [req setAction:action];
+  [req setErrorAction:errorAction];
+  [req setTarget:target];
+  [req sendRequest];
+}
+
+- (id)initRequestWithPath:(CPString)aPath
+{
+  self = [super init];
+  if (self)
+  {
+    self.path = aPath;
+    self.target = null;
+    self.action = null;
+    self.body = null;
+    self.query = null;
+    self.method = "GET";
+  }
+  return self;
+}
+
+- (void)sendRequest
+{
+  var api_token = [[Session instance] apiToken];
+
+  var added_query = "";
+  if (self.query)
+  {
+    added_query = "&" + self.query;
+  }
+
+  var request = [CPURLRequest requestWithURL:[CPString stringWithFormat:"%@/api%@?api_token=%@%@", API_URL, self.path, api_token, added_query ]];
+  [request setHTTPMethod:self.method];
+  if (body)
+  {  
+    [request setHTTPBody: JSON.stringify(body)];
+    [request setValue:"application/json" forHTTPHeaderField:"Content-Type"]; 
+  }
+
+  [CPURLConnection connectionWithRequest:request delegate:self]; 
+}
+
+- (void)connection:(CPURLConnection)anURLConnection didReceiveData:(CPString)aData
+{
+    try
+    {
+      var data = JSON.parse(aData);
+      if ( [self.target respondsToSelector:self.action] )
+      {
+        [self.target performSelector:self.action withObject:data];
+      }
+    }
+    catch (e)
+    {
+      if ( [self.target respondsToSelector:self.errorAction] )
+      {
+        [self.target performSelector:self.errorAction withObject:e];
+      }
+    }
+    //console.log(aData);
 }
 
 @end

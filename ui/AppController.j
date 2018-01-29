@@ -2,10 +2,9 @@
 @import <AppKit/AppKit.j>
 
 @import "extern.j"
-@import "ListWindowController.j"
-
-@import "LoginView.j"
 @import "Session.j"
+@import "ListWindowController.j"
+@import "LoginView.j"
 
 
 @implementation AppController : CPObject

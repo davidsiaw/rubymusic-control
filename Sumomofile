@@ -39,9 +39,105 @@ api = make_api api_url,
 
     SCRIPT <<-SCRIPT
         const crypto = require("crypto");
+
+        function get_library_data(type, on_complete)
+        {
+            Store.get("libraries/" + type,
+                function(data)
+                {
+                    on_complete(data);
+                },
+                function(error)
+                {
+                    on_complete({});
+                })
+        }
+
+        function modify_library_data(type, id, field, value, on_complete, on_error)
+        {
+            get_library_data(type, function(data)
+            {
+                if (!data[id])
+                {
+                    return on_error({error: "no such id"});
+                }
+
+                if (data[id][field] === undefined)
+                {
+                    return on_error({error: "no such field"});
+                }
+
+                data[id][field] = value;
+                Store.set("libraries/" + type, data,
+                    function()
+                    {
+                        on_complete(data);
+                    },
+                    function(error)
+                    {
+                        on_error(error);
+                    })
+            });
+        }
+
+        function add_library_row(type, new_row, on_complete, on_error)
+        {
+            get_library_data(type, function(data)
+            {
+                crypto.randomBytes(16, function(err, buffer) {
+                    var token = buffer.toString('hex');
+                    new_row.id = token;
+                    data[token] = new_row
+                    Store.set("libraries/" + type, data,
+                        function()
+                        {
+                            on_complete(data);
+                        },
+                        function(error)
+                        {
+                            on_error(error);
+                        })
+                });
+            })
+        }
+
+        function convert_data(data, sort)
+        {
+            var keys = Object.keys(data);
+            var result = {};
+
+            var temp_array = [];
+            for (var key in data)
+            {
+                temp_array.push(data[key]);
+            }
+
+            var idx = 0;
+            var sort_info = sort.split(",");
+
+            for(idx=0;idx<sort_info.length;idx++)
+            {
+                var tokens = sort_info[idx].split(":");
+                var field = tokens[0];
+                var asc = tokens[1] === "a" ? 1 : -1;
+                temp_array.sort(function(a,b){ return asc * (a[field].localeCompare(b[field])); })
+            }
+
+            for(idx=0;idx<temp_array.length;idx++)
+            {
+                result[idx] = temp_array[idx];
+            }
+
+            return {data: result, length: temp_array.length}
+        }
+
     SCRIPT
 
-    GET "/api/session", :api_token, <<-SCRIPT
+    def AUTH(method, path, *args)
+        inner_script = args.last
+
+        the_script = <<-SCRIPT
+
         Store.get("tokens/"+api_token,
         function(data)
         {
@@ -50,7 +146,7 @@ api = make_api api_url,
             {
                 if (data.api_token === api_token)
                 {
-                    respond_with ({message: "ok", api_token: data.api_token}, 200);
+#{inner_script}
                 }
                 else
                 {
@@ -67,6 +163,109 @@ api = make_api api_url,
             respond_with ({message: "not_found"}, 404);
         })
 
+        SCRIPT
+
+        argv = [path, :api_token] + args[0..-2] + [the_script]
+
+        self.send(:"#{method}", *argv )
+    end
+
+    def AUTH_GET(path, *args)
+        AUTH("GET", path, *args)
+    end
+
+    def AUTH_POST(path, *args)
+        AUTH("POST", path, *args)
+    end
+
+    def AUTH_PUT(path, *args)
+        AUTH("PUT", path, *args)
+    end
+
+    AUTH_GET "/api/session", <<-SCRIPT
+        respond_with ({message: "ok", api_token: data.api_token}, 200);
+    SCRIPT
+
+    AUTH_GET "/api/bots/library", :item, :sort, <<-SCRIPT
+        get_library_data("bots", function(data)
+        {
+            var result = convert_data(data, sort)
+            respond_with ({message: "ok", data: result.data, data_length: result.length}, 200);
+        });
+    SCRIPT
+
+    AUTH_POST "/api/bots/library", <<-SCRIPT
+        add_library_row("bots", 
+            {
+                name: "<name>",
+                token: "<token>",
+                location: "<location>",
+                playlist: "",
+                playing: 0
+
+            },
+            function(data)
+            {
+                respond_with ({message: "created"}, 201);
+            },
+            function(error)
+            {
+                console.log(error)
+                respond_with ({message: "internal_error"}, 500);  
+            });
+    SCRIPT
+
+    AUTH_POST "/api/bots/library/modify", :id, :field, :value, <<-SCRIPT
+        modify_library_data("bots", id, field, value,
+            function(data)
+            {
+                respond_with ({message: "ok"}, 200);
+            },
+            function(error)
+            {
+                console.log(error)
+                respond_with ({message: "internal_error"}, 500);  
+            });
+    SCRIPT
+
+    AUTH_GET "/api/songs/library", :item, :sort, <<-SCRIPT
+        get_library_data("songs", function(data)
+        {
+            var result = convert_data(data, sort)
+            respond_with ({message: "ok", data: result.data, data_length: result.length}, 200);
+        });
+    SCRIPT
+
+    AUTH_POST "/api/songs/library", <<-SCRIPT
+        add_library_row("songs", 
+            {
+                name: "<name>",
+                artist_name: "<artist_name>",
+                url: "<url>",
+                tags: []
+            },
+            function(data)
+            {
+                respond_with ({message: "created"}, 201);
+            },
+            function(error)
+            {
+                console.log(error)
+                respond_with ({message: "internal_error"}, 500);  
+            });
+    SCRIPT
+
+    AUTH_POST "/api/songs/library/modify", :id, :field, :value, <<-SCRIPT
+        modify_library_data("songs", id, field, value,
+            function(data)
+            {
+                respond_with ({message: "ok"}, 200);
+            },
+            function(error)
+            {
+                console.log(error)
+                respond_with ({message: "internal_error"}, 500);  
+            });
     SCRIPT
 
     POST "/api/session", :username, :password, <<-SCRIPT
