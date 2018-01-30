@@ -38,5 +38,15 @@ BOT_MODEL = {
        location: {editable: true},
        playlist: {},
         playing: {editable: true, type: "boolean"},
+      reachable: {type: "boolean"},
+  }
+}
+
+PLAYLIST_MODEL = {
+  type: "Playlist",
+  slug: "playlists",
+  list_of: SONG_MODEL,
+  fields: {
+    name: {editable: true}
   }
 }

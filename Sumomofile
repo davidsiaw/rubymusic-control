@@ -39,6 +39,11 @@ api = make_api api_url,
 
     SCRIPT <<-SCRIPT
         const crypto = require("crypto");
+        const protocol = {
+            https: require('https'),
+            http: require('http')
+        }
+        const URL = require('url').URL;
 
         function get_library_data(type, on_complete)
         {
@@ -60,11 +65,6 @@ api = make_api api_url,
                 if (!data[id])
                 {
                     return on_error({error: "no such id"});
-                }
-
-                if (data[id][field] === undefined)
-                {
-                    return on_error({error: "no such field"});
                 }
 
                 data[id][field] = value;
@@ -131,6 +131,98 @@ api = make_api api_url,
             return {data: result, length: temp_array.length}
         }
 
+        function send_playlist_to_bot(id, playlist)
+        {
+            get_library_data("bots", function(data) {
+                var bot = data[id];
+
+                var bot_url = new URL(bot.location + '/playlist?token=' + bot.token);
+                var proto = protocol[bot_url.protocol.replace(":", "")];
+
+                var postData = JSON.stringify(playlist);
+
+                var options = {
+                    hostname: bot_url.hostname,
+                    port: bot_url.port,
+                    path: bot_url.pathname + bot_url.search,
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(postData, 'utf8')
+                    }
+                };
+
+                var req = http.request(options, function (res) {
+                    console.log('STATUS:', res.statusCode);
+                    console.log('HEADERS:', JSON.stringify(res.headers));
+
+                    res.setEncoding('utf8');
+
+                    res.on('data', function (chunk) {
+                        console.log('BODY:', chunk);
+                    });
+
+                    res.on('end', function () {
+                        console.log('No more data in response.');
+                    });
+                });
+
+                req.on('error', function (e) {
+                    console.log('Problem with request:', e.message);
+                });
+
+                req.write(postData);
+                req.end();
+            });
+
+        }
+
+        function check_bot(id)
+        {
+            get_library_data("songs", function(data)
+            {
+                send_playlist_to_bot(id, {playlist: data})
+            });
+
+            get_library_data("bots", function(data) {
+                var bot = data[id];
+
+                var bot_url = new URL(bot.location + '/?token=' + bot.token);
+                var proto = protocol[bot_url.protocol.replace(":", "")];
+
+                proto.get(bot.location + '/?token=' + bot.token, (resp) => {
+
+                    var bot_resp = ""
+
+                    // A chunk of data has been recieved.
+                    resp.on('data', (chunk) => {
+                        bot_resp += chunk;
+                    });
+
+                    // The whole response has been received. Print out the result.
+                    resp.on('end', () => {
+                        var bot_response = JSON.parse(bot_resp);
+                        modify_library_data("bots", id, "reachable", 1,
+                            function(data){},
+                            function(error){});
+                        modify_library_data("bots", id, "status", bot_response.status,
+                            function(data){},
+                            function(error){});
+                    });
+
+                }).on("error", (err) => {
+                    modify_library_data("bots", id, "reachable", 0,
+                        function(data)
+                        {
+
+                        },
+                        function(error)
+                        {
+                        });
+                });
+            });
+        }
+
     SCRIPT
 
     def AUTH(method, path, *args)
@@ -195,14 +287,16 @@ api = make_api api_url,
     SCRIPT
 
     AUTH_POST "/api/bots/library", <<-SCRIPT
+
         add_library_row("bots", 
             {
                 name: "<name>",
                 token: "<token>",
                 location: "<location>",
                 playlist: "",
-                playing: 0
-
+                playing: 0,
+                reachable: 0,
+                status: ""
             },
             function(data)
             {
@@ -219,6 +313,7 @@ api = make_api api_url,
         modify_library_data("bots", id, field, value,
             function(data)
             {
+                check_bot(id);
                 respond_with ({message: "ok"}, 200);
             },
             function(error)
