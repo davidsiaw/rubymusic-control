@@ -41,7 +41,6 @@
   [menu setSubmenu:fileMenu forItem:fileMenuItem];
 
   [fileMenu addItemWithTitle:"Library" action:@selector(openLibrary:) keyEquivalent:""];
-  [fileMenu addItemWithTitle:"Default Playlist" action:@selector(openDefaultPlaylist:) keyEquivalent:""];
   [fileMenu addItemWithTitle:"Playlists" action:@selector(openPlaylists:) keyEquivalent:""];
 
 
@@ -55,23 +54,30 @@
 
 - (void)openLibrary:(id)sender
 {
-        
   var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,50,700,300) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
-  var windowController = [[ListWindowController alloc] initWithWindow:window andModel:SONG_MODEL andTitle:"Library" withNature:"library"];
+  var windowController = [[ListWindowController alloc] initLibraryWindow:window andModel:SONG_MODEL andTitle:"Library"];
   [windowController showWindow:window];
 }
 
-- (void)openDefaultPlaylist:(id)sender
+- (void)openPlaylists:(id)sender
 {       
   var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,400,700,300) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
-  var windowController = [[ListWindowController alloc] initWithWindow:window andModel:SONG_MODEL andTitle:"Default Playlist" withNature:"list"];
+  var windowController = [[ListWindowController alloc] initLibraryWindow:window andModel:PLAYLIST_MODEL andTitle:"Playlists"];
+  [windowController setDelegate:self];
   [windowController showWindow:window];
 }
 
 - (void)showBots:(id)sender
 {       
   var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,400,700,300) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
-  var windowController = [[ListWindowController alloc] initWithWindow:window andModel:BOT_MODEL andTitle:"Music Bots" withNature:"library"];
+  var windowController = [[ListWindowController alloc] initLibraryWindow:window andModel:BOT_MODEL andTitle:"Music Bots"];
+  [windowController showWindow:window];
+}
+
+- (void)openPlaylist:(id)playlist
+{
+  var window = [[CPWindow alloc] initWithContentRect:CGRectMake(50,50,700,300) styleMask:CPClosableWindowMask | CPResizableWindowMask | CPTitledWindowMask];
+  var windowController = [[ListWindowController alloc] initListWindow:window andModel:SONG_MODEL andTitle:"Playlist: " + [playlist valueForKey:"name"] withId:[playlist valueForKey:"id"]];
   [windowController showWindow:window];
 }
 

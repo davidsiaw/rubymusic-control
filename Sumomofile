@@ -387,6 +387,43 @@ api = make_api api_url,
             });
     SCRIPT
 
+    AUTH_GET "/api/playlists/library", :item, :sort, <<-SCRIPT
+        get_library_data("playlists", function(data)
+        {
+            var result = convert_data(data, sort)
+            respond_with ({message: "ok", data: result.data, data_length: result.length}, 200);
+        });
+    SCRIPT
+
+    AUTH_POST "/api/playlists/library", <<-SCRIPT
+        add_library_row("playlists", 
+            {
+                name: "<name>"
+            },
+            function(data)
+            {
+                respond_with ({message: "created"}, 201);
+            },
+            function(error)
+            {
+                console.log(error)
+                respond_with ({message: "internal_error"}, 500);  
+            });
+    SCRIPT
+
+    AUTH_POST "/api/playlists/library/modify", :id, :field, :value, <<-SCRIPT
+        modify_library_data("playlists", id, field, value,
+            function(data)
+            {
+                respond_with ({message: "ok"}, 200);
+            },
+            function(error)
+            {
+                console.log(error)
+                respond_with ({message: "internal_error"}, 500);  
+            });
+    SCRIPT
+
     POST "/api/session", :username, :password, <<-SCRIPT
 
         Store.get("users/"+username,

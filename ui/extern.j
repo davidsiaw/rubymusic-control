@@ -47,6 +47,7 @@ PLAYLIST_MODEL = {
   slug: "playlists",
   list_of: SONG_MODEL,
   fields: {
+    open: {type: "method", selector:@selector(openPlaylist:)},
     name: {editable: true}
   }
 }

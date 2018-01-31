@@ -39,6 +39,7 @@
       [self.view setCanAdd:YES];
       [self.view setCanEdit:NO];
     }
+
     [[self.view table] registerForDraggedTypes:dragtypes];
   }
   return self;
@@ -54,12 +55,22 @@
   [self.dataSource setFilter:filter];
 }
 
+- (void)setListId:(CPString)anId;
+{
+  [self.dataSource setListId:anId];
+}
+
+- (void)listId
+{
+  return [self.dataSource listId];
+}
+
 - (void)receivedData:(id)sender
 {
-    if ( [[self delegate] respondsToSelector:@selector(dataDidChange:)] )
-    {
-        [[self delegate] dataDidChange:self];
-    }
+  if ( [[self delegate] respondsToSelector:@selector(dataDidChange:)] )
+  {
+      [[self delegate] dataDidChange:self];
+  }
 }
 
 - (CPInteger)numberOfRows
@@ -67,5 +78,12 @@
   return [self.dataSource numberOfRows];
 }
 
+- (void)methodButtonClicked:(SEL)selector withItem:(id)item
+{
+  if ( [[self delegate] respondsToSelector:@selector(methodButtonClicked:withItem:)] )
+  {
+      [[self delegate] methodButtonClicked:selector withItem:item];
+  }
+}
 
 @end

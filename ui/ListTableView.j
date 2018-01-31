@@ -161,15 +161,12 @@
             [cbv setEnabled: fields[key].editable];
             [col setDataView:cbv];
         }
-        
 
-        //if (fields[key].type === "link")
-        //{
-        //    var cbv = [[HCLinkButtonView alloc] init];
-        //    [cbv setTargetUrl:fields[key].href];
-        //    if (fields[key].prefix) { [cbv setPrefix:fields[key].prefix]; }
-        //    [col setDataView:cbv];
-        //}
+        if (fields[key].type === "method")
+        {
+            var cbv = [CPButton buttonWithTitle:key];
+            [col setDataView:cbv];
+        }
 
         if (fields[key].editable === true)
         {

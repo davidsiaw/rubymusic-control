@@ -12,6 +12,8 @@
   int dataLength;
   id data;
 
+  CPString listId @accessors;
+
   CPArray _draggedItems;
 }
 
@@ -214,7 +216,7 @@
 
   [SessionRequest GET:[CPString stringWithFormat:"/%@/%@", self.model.slug, self.nature]
             forTarget:self
-            withQuery:"item=" + item + "&sort=" + sort
+            withQuery:"item=" + item + "&sort=" + sort + (listId ? "&list=" + listId : "")
             andNotify:@selector(dataDidLoad:)
             otherwise:@selector(dataLoadDidError:)];
 }
@@ -279,14 +281,14 @@
   return nil;
 }
 
-- (BOOL)outlineView:(CPOutlineView)outlineView isItemExpandable:(id)item
+- (BOOL)outlineView:(CPOutlineView)outlineView isItemExpandable:(id)theItem
 {
   return NO;
 }
 
-- (int)outlineView:(CPOutlineView)outlineView numberOfChildrenOfItem:(id)item
+- (int)outlineView:(CPOutlineView)outlineView numberOfChildrenOfItem:(id)theItem
 {
-  if (item === nil)
+  if (theItem === nil)
   {
     if (self.dataLength === -1)
     {
@@ -295,6 +297,7 @@
     }
     return dataLength;
   }
+
   return 0;
 }
 
@@ -354,11 +357,21 @@
 
 - (void)outlineView:(CPOutlineView)outlineView setObjectValue:(id)object forTableColumn:(CPTableColumn)tableColumn byItem:(id)item
 {
+  if (self.model.fields[[tableColumn identifier]].type === "method")
+  {
+    if ([self.delegate respondsToSelector:@selector(methodButtonClicked:withItem:)])
+    {
+      [self.delegate methodButtonClicked:self.model.fields[[tableColumn identifier]].selector withItem:item];
+    }
+    return;
+  }
+
   [SessionRequest POST:[CPString stringWithFormat:"/%@/%@/modify", self.model.slug, self.nature]
-            forTarget:self
-            withBody:{id: [item valueForKey:"id"], field: [tableColumn identifier], value: object}
-            andNotify:@selector(modifyDidComplete:)
-            otherwise:@selector(modifyError:)];
+             forTarget:self
+             withQuery:(listId ? "list=" + listId : "")
+              withBody:{id: [item valueForKey:"id"], field: [tableColumn identifier], value: object}
+             andNotify:@selector(modifyDidComplete:)
+             otherwise:@selector(modifyError:)];
 
 
   [item setValue:object forKey:[tableColumn identifier]];
@@ -428,10 +441,11 @@
   {
 
     [SessionRequest POST:[CPString stringWithFormat:"/%@/%@", self.model.slug, self.nature]
-              forTarget:self
-              withBody:{}
-              andNotify:@selector(modifyDidComplete:)
-              otherwise:@selector(modifyError:)];
+               forTarget:self
+               withQuery:(listId ? "list=" + listId : "")
+                withBody:{}
+               andNotify:@selector(modifyDidComplete:)
+               otherwise:@selector(modifyError:)];
 
   }
 }
@@ -464,6 +478,18 @@
 {
   var req = [[SessionRequest alloc] initRequestWithPath:aPath];
   [req setMethod:"POST"];
+  [req setBody:body];
+  [req setAction:action];
+  [req setErrorAction:errorAction];
+  [req setTarget:target];
+  [req sendRequest];
+}
+
++ (void)POST:(CPString)aPath forTarget:(id)target withQuery:(CPString)query withBody:(id)body andNotify:(SEL)action otherwise:(SEL)errorAction
+{
+  var req = [[SessionRequest alloc] initRequestWithPath:aPath];
+  [req setMethod:"POST"];
+  [req setQuery:query];
   [req setBody:body];
   [req setAction:action];
   [req setErrorAction:errorAction];
