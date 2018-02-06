@@ -7,6 +7,7 @@
   CPOutlineView tableView @accessors;
 
   CPButton addButton;
+  CPButton deleteButton;
   CPButton manageButton;
 }
 
@@ -35,8 +36,12 @@
     [addButton setFrameOrigin:CGPointMake(8,8)];
     [self addSubview:addButton];
 
+    deleteButton = [CPButton buttonWithTitle:"Delete"];
+    [deleteButton setFrameOrigin:CGPointMake([addButton bounds].size.width + 16,8)];
+    [self addSubview:deleteButton];
+
     manageButton = [CPButton buttonWithTitle:"Manage Mode"];
-    [manageButton setFrameOrigin:CGPointMake([addButton bounds].size.width + 16, 8)];
+    [manageButton setFrameOrigin:CGPointMake([deleteButton bounds].size.width + 8 + [addButton bounds].size.width + 16, 8)];
     [manageButton setButtonType:CPToggleButton];
     [manageButton setAlternateTitle:@"Edit Mode"];
     [self addSubview:manageButton];
@@ -50,6 +55,11 @@
     [addButton setHidden:!aValue];
 }
 
+- (void)setCanDelete:(BOOL)aValue
+{
+    [deleteButton setHidden:!aValue];
+}
+
 - (void)setCanEdit:(BOOL)aValue
 {
     [manageButton setHidden:!aValue];
@@ -58,6 +68,11 @@
 - (BOOL)canAdd
 {
     return ![addButton isHidden];
+}
+
+- (BOOL)canDelete
+{
+    return ![deleteButton isHidden];
 }
 
 - (BOOL)canEdit
@@ -105,6 +120,17 @@
   {
     [addButton setEnabled: NO];
   }
+
+  if ( [[self delegate] canDelete] )
+  {
+    [deleteButton setTarget: aDelegate];
+    [deleteButton setAction: @selector(deleteClicked:)];
+    [deleteButton setEnabled: YES];
+  }
+  else
+  {
+    [deleteButton setEnabled: NO];
+  }
 }
 
 - (void)applyModel:(id)model
@@ -143,7 +169,12 @@
         if (fields[key].type === "choice")
         {
             var cbv = [[CPPopUpButton alloc] initWithFrame:[self bounds]];
-            [cbv addItemsWithTitles: fields[key].choices];
+
+            if (fields[key].choices)
+            {
+                [cbv addItemsWithTitles: fields[key].choices];
+            }
+
             [cbv setEnabled: fields[key].editable];
             [col setDataView:cbv];
         }

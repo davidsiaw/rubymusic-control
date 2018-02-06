@@ -29,6 +29,10 @@
     [self.dataSource setDelegate: self];
 
     [self.view applyModel: aModel];
+    if (self.nature === "list")
+    {
+      [[[self.view tableView] tableColumnWithIdentifier:"ord"] setHidden: false];
+    }
 
     var dragtypes = []
     dragtypes.push(get_drag_type(self.model.type+self.nature));
@@ -37,7 +41,14 @@
     {
       dragtypes.push(get_drag_type(self.model.type+"library"));
       [self.view setCanAdd:YES];
+      [self.view setCanDelete:YES];
       [self.view setCanEdit:NO];
+    }
+    else
+    {
+      [self.view setCanAdd:YES];
+      [self.view setCanDelete:NO];
+      [self.view setCanEdit:YES];
     }
 
     [[self.view table] registerForDraggedTypes:dragtypes];

@@ -11,6 +11,7 @@
 
   int dataLength;
   id data;
+  id sideData;
 
   CPString listId @accessors;
 
@@ -68,6 +69,56 @@
   {
     return NO;
   }
+
+  if (self.nature === "list")
+  {
+    var draggedData = [[theInfo draggingPasteboard] dataForType:get_drag_type(self.model.type+"list")];
+    if (!draggedData)
+    {
+      draggedData = [[theInfo draggingPasteboard] dataForType:get_drag_type(self.model.type+"library")];
+    }
+
+    var toBeInserted = [CPKeyedUnarchiver unarchiveObjectWithData:draggedData];
+    var count = [toBeInserted count];
+
+    var dragged_items = []
+
+    for (var i=0; i<count; ++i)
+    {
+      dragged_items.push([toBeInserted objectAtIndex:i])
+    }
+
+    if ([[theInfo draggingSource] UID] === [outlineView UID])
+    {
+      // move
+      [SessionRequest POST:[CPString stringWithFormat:"/%@/list/move", self.model.slug]
+                 forTarget:self
+                 withQuery:(listId ? "list=" + listId : "")
+                  withBody:{ords: dragged_items.map(function(x)
+                  {
+                    return [x valueForKey:"ord"]
+                  }), to_pos: theIndex}
+                 andNotify:@selector(modifyDidComplete:)
+                 otherwise:@selector(modifyError:)];
+    }
+    else
+    {
+      // insert
+      [SessionRequest POST:[CPString stringWithFormat:"/%@/list", self.model.slug]
+                 forTarget:self
+                 withQuery:(listId ? "list=" + listId : "")
+                  withBody:{ids: dragged_items.map(function(x)
+                  {
+                    return [x valueForKey:"id"]
+                  }), to_pos: theIndex}
+                 andNotify:@selector(modifyDidComplete:)
+                 otherwise:@selector(modifyError:)];
+    }
+
+    return YES;
+  }
+
+  return NO;
 
   if ([[theInfo draggingSource] UID] === [outlineView UID] && self.nature === "list")
   {
@@ -179,6 +230,7 @@
 
     self.dataLength = -1
     self.data = {}
+    self.sideData = {}
 
     //self.data[0] = [CPDictionary fromJSObject: {ord: 0, id: "a", name: "7 Senses", artist_name: "Wake Up Girls!", url: "https://7senses.flac"}]
     //self.data[1] = [CPDictionary fromJSObject: {ord: 1, id: "b", name: "Change!", artist_name: "765 All Stars", url: "https://change.flac"}]
@@ -196,6 +248,7 @@
 
 - (void)refreshFromServer
 {
+
   [self getItemFromServerAtIndex:0];
 }
 
@@ -219,6 +272,66 @@
             withQuery:"item=" + item + "&sort=" + sort + (listId ? "&list=" + listId : "")
             andNotify:@selector(dataDidLoad:)
             otherwise:@selector(dataLoadDidError:)];
+
+  for (var key in model.fields)
+  {
+    if (model.fields[key].type === "choice" && model.fields[key].choice_model)
+    {
+      [SessionRequest GET:[CPString stringWithFormat:"/%@/library", model.fields[key].choice_model.slug]
+                forTarget:self
+                withQuery:"item=" + item + "&sort="
+                andNotify:@selector(sideDataDidLoad:)
+                otherwise:@selector(sideDataLoadDidError:)];
+    }
+  }
+}
+
+- (void)sideDataDidLoad:(id)loadedData
+{
+  sideData[loadedData.data_type] = loadedData;
+
+  var key = null
+
+  for (var field_name in model.fields)
+  {
+    if (model.fields[field_name].type === "choice" && model.fields[field_name].choice_model && loadedData.data_type === model.fields[field_name].choice_model.slug)
+    {
+      key = field_name;
+      break;
+    }
+  }
+
+  if (key)
+  {
+    var column = [[dataView tableView] tableColumnWithIdentifier:key];
+
+    var cbv = [[CPPopUpButton alloc] initWithFrame:[[dataView tableView] bounds]];
+
+    if (model.fields[key].choice_default)
+    {
+      var item = [[CPMenuItem alloc] initWithTitle:model.fields[key].choice_default action:null keyEquivalent:null]
+      [cbv addItem: item];
+    }
+
+    var i = 0
+    for(i=0;i<loadedData.data_length;i++)
+    {
+      var datum = loadedData.data[i];
+      var name = model.fields[key].choice_display ? datum[model.fields[key].choice_display] : datum.id
+
+      var item = [[CPMenuItem alloc] initWithTitle:name action:null keyEquivalent:null]
+      [cbv addItem: item];
+    }
+  
+    [cbv setEnabled: model.fields[key].editable];
+    [column setDataView:cbv];
+  }
+
+  [[dataView tableView] reloadData];
+}
+
+- (void)sideDataLoadDidError:(id)loadedData
+{
 }
 
 - (void)dataDidLoad:(id)loadedData
@@ -256,6 +369,13 @@
 
 - (void)setFilter:(id)aFilter
 {
+  [[dataView tableView] reloadData];
+}
+
+- (void)setListId:(CPString)aListId
+{
+  self.listId = aListId;
+  [self resetData];
   [[dataView tableView] reloadData];
 }
 
@@ -346,8 +466,19 @@
     }
     if (fields[identifier].type === "choice")
     {
-      var arr = fields[identifier].choices;
-      return arr.indexOf(obj);
+      if (fields[identifier].choices)
+      {
+        var arr = fields[identifier].choices;
+        return arr.indexOf(obj);
+      }
+
+      var model_data = sideData[fields[identifier].choice_model.slug]
+      if (fields[identifier].choice_model && model_data)
+      {
+        return obj;
+      }
+
+      return 0;
     }
 
     return obj;
@@ -357,6 +488,14 @@
 
 - (void)outlineView:(CPOutlineView)outlineView setObjectValue:(id)object forTableColumn:(CPTableColumn)tableColumn byItem:(id)item
 {
+  if (!tableColumn)
+  {
+    console.log("no table column")
+    console.log(object)
+    console.log(item)
+    return;
+  }
+
   if (self.model.fields[[tableColumn identifier]].type === "method")
   {
     if ([self.delegate respondsToSelector:@selector(methodButtonClicked:withItem:)])
@@ -366,10 +505,14 @@
     return;
   }
 
+  var value = object;
+  var key = [tableColumn identifier];
+
+
   [SessionRequest POST:[CPString stringWithFormat:"/%@/%@/modify", self.model.slug, self.nature]
              forTarget:self
              withQuery:(listId ? "list=" + listId : "")
-              withBody:{id: [item valueForKey:"id"], field: [tableColumn identifier], value: object}
+              withBody:{id: [item valueForKey:"id"], field: key, value: value}
              andNotify:@selector(modifyDidComplete:)
              otherwise:@selector(modifyError:)];
 
@@ -450,6 +593,36 @@
   }
 }
 
+- (BOOL)canDelete
+{
+  if (self.nature === "list")
+  {
+    return YES;
+  }
+  return NO;
+}
+
+- (void)deleteClicked:(id)sender
+{
+  if (self.nature === "list")
+  {
+    var indexSet = [[dataView tableView] selectedRowIndexes];
+    var ords = []
+
+    [indexSet enumerateIndexesUsingBlock:function(idx, stop)
+    {
+      ords.push(idx);
+    }]
+
+    [SessionRequest DELETE:[CPString stringWithFormat:"/%@/%@", self.model.slug, self.nature]
+               forTarget:self
+               withQuery:(listId ? "list=" + listId : "")
+                withBody:{ords: ords}
+               andNotify:@selector(modifyDidComplete:)
+               otherwise:@selector(modifyError:)];
+  }
+}
+
 
 @end
 
@@ -489,6 +662,29 @@
 {
   var req = [[SessionRequest alloc] initRequestWithPath:aPath];
   [req setMethod:"POST"];
+  [req setQuery:query];
+  [req setBody:body];
+  [req setAction:action];
+  [req setErrorAction:errorAction];
+  [req setTarget:target];
+  [req sendRequest];
+}
+
++ (void)DELETE:(CPString)aPath forTarget:(id)target withBody:(id)body andNotify:(SEL)action otherwise:(SEL)errorAction
+{
+  var req = [[SessionRequest alloc] initRequestWithPath:aPath];
+  [req setMethod:"DELETE"];
+  [req setBody:body];
+  [req setAction:action];
+  [req setErrorAction:errorAction];
+  [req setTarget:target];
+  [req sendRequest];
+}
+
++ (void)DELETE:(CPString)aPath forTarget:(id)target withQuery:(CPString)query withBody:(id)body andNotify:(SEL)action otherwise:(SEL)errorAction
+{
+  var req = [[SessionRequest alloc] initRequestWithPath:aPath];
+  [req setMethod:"DELETE"];
   [req setQuery:query];
   [req setBody:body];
   [req setAction:action];

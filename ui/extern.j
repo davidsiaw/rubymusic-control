@@ -29,19 +29,6 @@ SONG_MODEL = {
   }
 }
 
-BOT_MODEL = {
-  type: "Bot",
-  slug: "bots",
-  fields: {
-           name: {editable: true},
-          token: {editable: true, type: "secure"},
-       location: {editable: true},
-       playlist: {},
-        playing: {editable: true, type: "boolean"},
-      reachable: {type: "boolean"},
-  }
-}
-
 PLAYLIST_MODEL = {
   type: "Playlist",
   slug: "playlists",
@@ -49,5 +36,19 @@ PLAYLIST_MODEL = {
   fields: {
     open: {type: "method", selector:@selector(openPlaylist:)},
     name: {editable: true}
+  }
+}
+
+
+BOT_MODEL = {
+  type: "Bot",
+  slug: "bots",
+  fields: {
+           name: {editable: true},
+          token: {editable: true, type: "secure"},
+       location: {editable: true},
+       playlist: {editable: true, type: "choice", choice_model: PLAYLIST_MODEL, choice_display: "name", choice_default: "Whole Library"},
+        playing: {editable: true, type: "boolean"},
+      reachable: {type: "boolean"},
   }
 }

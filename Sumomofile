@@ -58,6 +58,172 @@ api = make_api api_url,
                 })
         }
 
+        function get_list_data(type, list_id, on_complete)
+        {
+            get_library_data(type, function(lib_data)
+            {
+                Store.get("lists/" + type + "/" + list_id,
+                    function(data)
+                    {
+                        var items = {};
+
+                        var count = 0;
+                        for(var key in data)
+                        {
+                            var item_id = data[key];
+                            var item = lib_data[item_id];
+                            items[count++] = item;
+                        }
+
+                        on_complete(items, lib_data);
+                    },
+                    function(error)
+                    {
+                        on_complete({}, lib_data);
+                    })
+            });
+        }
+
+        function add_item_to_list(type, list_id, item_ids, position, on_complete, on_error)
+        {
+            get_list_data(type, list_id, function(items, lib_data)
+            {
+                var item_array = Object.keys(items).map(function(x){ return items[x].id })
+                var new_array = []
+
+                for (var idx in item_ids)
+                {
+                    if (!lib_data[item_ids[idx]])
+                    {
+                        return on_error({error: "no such item: "+item_ids[idx]});
+                    }
+                }
+
+                if (position < 0 || position > item_array.length)
+                {
+                    return on_error({error: "invalid position"});
+                }
+
+                var i=0;
+
+                // Insert items before
+                for(i=0;i<position && i<item_array.length;i++)
+                {
+                    new_array.push(item_array[i])
+                }
+
+                // Insert dragged items
+                for (i=0; i<item_ids.length; ++i)
+                {
+                    new_array.push(item_ids[i])
+                }
+
+                for(i=position;i<item_array.length;i++)
+                {
+                    new_array.push(item_array[i])
+                }
+
+                Store.set("lists/" + type + "/" + list_id, new_array,
+                    function(data)
+                    {
+                        on_complete(data);
+                    },
+                    function(error)
+                    {
+                        on_error(error);
+                    })
+            })
+        }
+
+        function move_item_in_list(type, list_id, old_positions, position, on_complete, on_error)
+        {
+            old_positions = old_positions.map(function(x){return parseInt(x)});
+
+            get_list_data(type, list_id, function(items, lib_data)
+            {
+                var item_array = Object.keys(items).map(function(x){ return items[x].id })
+                var new_array = []
+
+                if (position < 0 || position > item_array.length)
+                {
+                    return on_error({error: "invalid position"});
+                }
+
+                // Insert items before
+                var i=0;
+                for(i=0;i<position && i<item_array.length;i++)
+                {
+                    if (old_positions.indexOf(i) != -1)
+                    {
+                        continue;
+                    }
+                    new_array.push(item_array[i]);
+                }
+
+                for (var idx in old_positions)
+                {
+                    if (old_positions[idx] < 0 || old_positions[idx] >= item_array.length)
+                    {
+                        return on_error({error: "invalid old position"});
+                    }
+
+                    // Insert dragged items
+                    new_array.push(item_array[old_positions[idx]])
+                }
+
+                for(i=position;i<item_array.length;i++)
+                {
+                    if (old_positions.indexOf(i) != -1)
+                    {
+                        continue;
+                    }
+                    new_array.push(item_array[i])
+                }
+
+                Store.set("lists/" + type + "/" + list_id, new_array,
+                    function(data)
+                    {
+                        on_complete(data);
+                    },
+                    function(error)
+                    {
+                        on_error(error);
+                    })
+            })
+        }
+
+        function delete_item_in_list(type, list_id, positions, on_complete, on_error)
+        {
+            positions = positions.map(function(x){return parseInt(x)});
+
+            get_list_data(type, list_id, function(items, lib_data)
+            {
+                var item_array = Object.keys(items).map(function(x){ return items[x].id })
+                var new_array = []
+
+                // Insert items before
+                var i=0;
+                for(i=0;i<item_array.length;i++)
+                {
+                    if (positions.indexOf(i) != -1)
+                    {
+                        continue;
+                    }
+                    new_array.push(item_array[i]);
+                }
+
+                Store.set("lists/" + type + "/" + list_id, new_array,
+                    function(data)
+                    {
+                        on_complete(data);
+                    },
+                    function(error)
+                    {
+                        on_error(error);
+                    })
+            })
+        }
+
         function modify_library_data(type, id, field, value, on_complete, on_error)
         {
             get_library_data(type, function(data)
@@ -67,11 +233,13 @@ api = make_api api_url,
                     return on_error({error: "no such id"});
                 }
 
+                var changed = data[id][field] !== value;
                 data[id][field] = value;
+
                 Store.set("libraries/" + type, data,
                     function()
                     {
-                        on_complete(data);
+                        on_complete(data, changed);
                     },
                     function(error)
                     {
@@ -113,14 +281,29 @@ api = make_api api_url,
             }
 
             var idx = 0;
-            var sort_info = sort.split(",");
+            var sort_info = sort.split(",").filter(function(el) {return el.length > 1});
 
             for(idx=0;idx<sort_info.length;idx++)
             {
                 var tokens = sort_info[idx].split(":");
                 var field = tokens[0];
                 var asc = tokens[1] === "a" ? 1 : -1;
-                temp_array.sort(function(a,b){ return asc * (a[field].localeCompare(b[field])); })
+                try
+                {
+                    temp_array.sort(function(a,b)
+                    {
+                        if (typeof a[field] === "string")
+                        {
+                            return asc * (a[field].localeCompare(b[field]));
+                        }
+                        return asc * ((""+a[field]).localeCompare(""+b[field]));
+                    })   
+                }
+                catch (e)
+                {
+                    console.log("cannot sort", sort_info[idx])
+                    console.log(e)
+                }
             }
 
             for(idx=0;idx<temp_array.length;idx++)
@@ -131,7 +314,7 @@ api = make_api api_url,
             return {data: result, length: temp_array.length}
         }
 
-        function send_playlist_to_bot(id, playlist)
+        function send_playlist_to_bot(id, playlist, on_complete, on_error)
         {
             get_library_data("bots", function(data) {
                 var bot = data[id];
@@ -154,8 +337,8 @@ api = make_api api_url,
                 };
 
                 var req = proto.request(options, function (res) {
-                    console.log('STATUS:', res.statusCode);
-                    console.log('HEADERS:', JSON.stringify(res.headers));
+                    //console.log('STATUS:', res.statusCode);
+                    //console.log('HEADERS:', JSON.stringify(res.headers));
 
                     res.setEncoding('utf8');
 
@@ -164,6 +347,7 @@ api = make_api api_url,
                     });
 
                     res.on('end', function () {
+                        on_complete();
                         //console.log('No more data in response.');
                     });
                 });
@@ -171,6 +355,7 @@ api = make_api api_url,
                 req.on('error', function (e) {
                     console.log(bot.location)
                     console.log('Problem with request:', e.message);
+                    on_error(e);
                 });
 
                 req.write(postData);
@@ -178,21 +363,32 @@ api = make_api api_url,
             });
         }
 
-        function set_bot_playing(proto, bot, is_playing)
+        function set_bot_playing(id, is_playing, on_complete, on_error)
         {
-            var command = is_playing ? "play" : "stop";
+            get_library_data("bots", function(data) {
+                var bot = data[id];
 
-            proto.get(bot.location + '/' + command + '?token=' + bot.token, (resp) => {}).
-                on("error", (err) => {
-                    console.log(bot.location)
-                    console.log('Problem with set to', command, ':', e.message);
-                });;
+                var command = is_playing ? "play" : "stop";
+
+                var bot_url = new URL(bot.location);
+                var proto = protocol[bot_url.protocol.replace(":", "")];
+
+                proto.get(bot.location + '/' + command + '?token=' + bot.token, (resp) => 
+                    {
+                        on_complete();
+                    }).
+                    on("error", (err) => {
+                        console.log(bot.location)
+                        console.log('Problem with set to', command, ':', e.message);
+                        on_error(err);
+                    });;
+            });
         }
 
-        function set_playlist_to_everything_on_bot(id)
+        function set_playlist_to_everything_on_bot(id, on_complete, on_error)
         {            
             get_library_data("songs", function(data) {
-                send_playlist_to_bot(id, {playlist: data})
+                send_playlist_to_bot(id, {playlist: data}, on_complete, on_error)
             });
         }
 
@@ -204,7 +400,7 @@ api = make_api api_url,
                 var bot_url = new URL(bot.location + '/?token=' + bot.token);
                 var proto = protocol[bot_url.protocol.replace(":", "")];
 
-                set_bot_playing(proto, bot, bot.playing);
+                set_bot_playing(id, bot.playing, function(){}, function(err){});
 
                 proto.get(bot.location + '/?token=' + bot.token, (resp) => {
 
@@ -298,6 +494,10 @@ api = make_api api_url,
         AUTH("PUT", path, *args)
     end
 
+    def AUTH_DELETE(path, *args)
+        AUTH("DELETE", path, *args)
+    end
+
     AUTH_GET "/api/session", <<-SCRIPT
         respond_with ({message: "ok", api_token: data.api_token}, 200);
     SCRIPT
@@ -306,7 +506,7 @@ api = make_api api_url,
         get_library_data("bots", function(data)
         {
             var result = convert_data(data, sort)
-            respond_with ({message: "ok", data: result.data, data_length: result.length}, 200);
+            respond_with ({message: "ok", data: result.data, data_length: result.length, data_type: "bots"}, 200);
         });
     SCRIPT
 
@@ -335,9 +535,52 @@ api = make_api api_url,
 
     AUTH_POST "/api/bots/library/modify", :id, :field, :value, <<-SCRIPT
         modify_library_data("bots", id, field, value,
-            function(data)
+            function(data, changed)
             {
                 check_bot(id);
+
+                if (field === "playlist")
+                {
+                    function completion_confirmed()
+                    {
+                        set_bot_playing(id, false, function()
+                        {
+
+                            set_bot_playing(id, true, function()
+                            {
+
+                            }, function(err){});
+
+                        }, function(err){});
+                    }
+
+                    function error_received(err)
+                    {
+                        console.log(err)
+                    }
+
+                    if (changed)
+                    {
+                        if (value === 0)
+                        {
+                            set_playlist_to_everything_on_bot(id, completion_confirmed, error_received)
+                        }
+                        else
+                        {
+                            get_library_data("playlists", function(data)
+                            {
+                                var result = convert_data(data, "");
+
+                                get_list_data("songs", result.data[value-1].id, function(data)
+                                {
+                                    send_playlist_to_bot(id, {playlist: data}, completion_confirmed, error_received)
+                                });
+                            });
+                        }
+                    }
+                }
+                
+
                 respond_with ({message: "ok"}, 200);
             },
             function(error)
@@ -347,11 +590,52 @@ api = make_api api_url,
             });
     SCRIPT
 
+    AUTH_GET "/api/songs/list", :list, <<-SCRIPT
+        get_list_data("songs", list || "default", function(data)
+        {
+            var result = convert_data(data, "")
+            respond_with ({message: "ok", data: result.data, data_length: result.length, data_type: "songs"}, 200);
+        });
+    SCRIPT
+
+    AUTH_POST "/api/songs/list", :list, :ids, :to_pos, <<-SCRIPT
+        add_item_to_list("songs", list || "default", ids, to_pos, function(data)
+        {
+            respond_with ({message: "created"}, 201);
+
+        }, function(error)
+        {
+            respond_with ({message: error}, 400);
+        });
+    SCRIPT
+
+    AUTH_POST "/api/songs/list/move", :list, :ords, :to_pos, <<-SCRIPT
+        move_item_in_list("songs", list, ords, to_pos, function(data)
+        {
+            respond_with ({message: "ok"}, 200);
+
+        }, function(error)
+        {
+            respond_with ({message: error}, 400);
+        });
+    SCRIPT
+
+    AUTH_DELETE "/api/songs/list", :list, :ords, <<-SCRIPT
+        delete_item_in_list("songs", list, ords, function(data)
+        {
+            respond_with ({message: "ok"}, 200);
+
+        }, function(error)
+        {
+            respond_with ({message: error}, 400);
+        });
+    SCRIPT
+
     AUTH_GET "/api/songs/library", :item, :sort, <<-SCRIPT
         get_library_data("songs", function(data)
         {
             var result = convert_data(data, sort)
-            respond_with ({message: "ok", data: result.data, data_length: result.length}, 200);
+            respond_with ({message: "ok", data: result.data, data_length: result.length, data_type: "songs"}, 200);
         });
     SCRIPT
 
@@ -391,7 +675,7 @@ api = make_api api_url,
         get_library_data("playlists", function(data)
         {
             var result = convert_data(data, sort)
-            respond_with ({message: "ok", data: result.data, data_length: result.length}, 200);
+            respond_with ({message: "ok", data: result.data, data_length: result.length, data_type: "playlists"}, 200);
         });
     SCRIPT
 
