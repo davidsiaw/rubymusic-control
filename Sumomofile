@@ -543,15 +543,18 @@ api = make_api api_url,
                 {
                     function completion_confirmed()
                     {
-                        set_bot_playing(id, false, function()
+                        if (changed)
                         {
-
-                            set_bot_playing(id, true, function()
+                            set_bot_playing(id, false, function()
                             {
 
-                            }, function(err){});
+                                set_bot_playing(id, true, function()
+                                {
 
-                        }, function(err){});
+                                }, function(err){});
+
+                            }, function(err){});
+                        }
                     }
 
                     function error_received(err)
@@ -559,24 +562,21 @@ api = make_api api_url,
                         console.log(err)
                     }
 
-                    if (changed)
+                    if (value === 0)
                     {
-                        if (value === 0)
+                        set_playlist_to_everything_on_bot(id, completion_confirmed, error_received)
+                    }
+                    else
+                    {
+                        get_library_data("playlists", function(data)
                         {
-                            set_playlist_to_everything_on_bot(id, completion_confirmed, error_received)
-                        }
-                        else
-                        {
-                            get_library_data("playlists", function(data)
-                            {
-                                var result = convert_data(data, "");
+                            var result = convert_data(data, "");
 
-                                get_list_data("songs", result.data[value-1].id, function(data)
-                                {
-                                    send_playlist_to_bot(id, {playlist: data}, completion_confirmed, error_received)
-                                });
+                            get_list_data("songs", result.data[value-1].id, function(data)
+                            {
+                                send_playlist_to_bot(id, {playlist: data}, completion_confirmed, error_received)
                             });
-                        }
+                        });
                     }
                 }
                 
